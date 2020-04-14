@@ -3,18 +3,22 @@
 %EZ PATAI 2018-19
 %UCL, Institute of Behavioural Neuroscience
 %e.patai@ucl.ac.uk
-
-%% set some stuff up (USER INPUT NEEDED, ie CHANGE THESE PATHS etc)
+%% USER INPUT START
+%% set some stuff up (ie CHANGE THESE PATHS etc)
 
 % %set the path to the data and the .m files needed for the script(parse_json.m)
-addpath('/Users/ezpatai/Documents/EZP/offlineAppAnalysis-master/')
+addpath('/Users/ezpatai/Downloads/SHQofflineAppAnalysis-master/')
+
 % % go to the directory with the data
-cd('/Users/ezpatai/Documents/EZP/SHQ_emo');
+cd '/Users/ezpatai/Downloads/Users/annabelvondietze/Desktop/RM_files_100420/'
 
 % %lists all the folders with the json files inside (should be organized per participant, so this will find folders like: S045_XXXX etc))
-listing = dir('/Users/ezpatai/Documents/EZP/SHQ_emo/S2*');
+listing = dir('/Users/ezpatai/Downloads/Users/annabelvondietze/Desktop/RM_files_100420/F*');
 
-% % all the levels you need (i.e. which you ran as part of your protocol)
+% % filename for excel output
+outputfilename = '/Users/ezpatai/Downloads/Users/annabelvondietze/Desktop/RM_files_100420/summary_nonorm.xlsx';
+
+%% all the levels you need (i.e. which you ran as part of your protocol)
 %     %TG
 %     needed=[1:4,6:9,11:14,16:19,21:24,26:29,31:34,36:39,41:43,43,43,44,49,54,59,64,69,74,100,200,300,400,500];
 %     flares=[4,9,14,19,24,29,34,39,44,49,54,59,64,69,74];
@@ -33,7 +37,9 @@ listing = dir('/Users/ezpatai/Documents/EZP/SHQ_emo/S2*');
 %     radial=[400];
 %     normal_levels=cat(2,setdiff(needed,cat(2,flares,radial)));
     
-    
+%% do you want to normalize results by level 1&2 (practice) 
+normalize=0;
+%% USER INPUT OVER
 %% prepare the summary data
     summary_dist=nan(size(listing,1),size(normal_levels,2));
     summary_dur=nan(size(listing,1),size(normal_levels,2));
@@ -120,9 +126,9 @@ for s =1:size(listing,1)
         end
         
         if isfield(data_participant.meta, 'radial_technique') ==1 
-        radial_tech(ifile)=data_participant.meta.radial_technique;
+            radial_tech(ifile)=data_participant.meta.radial_technique;
         else
-            %
+            radial_tech(ifile)=nan;
         end
               
 % %     get radial accuracies
@@ -234,17 +240,15 @@ for s =1:size(listing,1)
     end
     
     for i=1:size(radial,2)
-        if sum(vect_levels==radial(i))>1
+        if sum(vect_levels==radial(i))>1 %if done multiple times take 1st instance
             temp = radial_tech(vect_levels==radial(i));temp2 = radial_probeerr(vect_levels==radial(i));temp3 = radial_wmerr(vect_levels==radial(i));
             radial_tech_reg(i)=temp(1);
             radial_acc_reg(i)=temp2(1);
-            radial_wmerr(i)=temp3(1);
-            radial_incorrect_probe_reg=nan;
+            radial_incorrect_probe_reg(i)=temp3(1);
         elseif sum(vect_levels==radial(i))==0
             radial_tech_reg(i)=nan;
             radial_acc_reg(i)=nan;
-            radial_wmerr(i)=nan;
-            radial_incorrect_probe_reg=nan;
+            radial_incorrect_probe_reg(i)=nan;
         else
             radial_tech_reg(i)=radial_tech(vect_levels==radial(i));
             radial_acc_reg(i)=radial_probeerr(vect_levels==radial(i));
@@ -252,11 +256,17 @@ for s =1:size(listing,1)
         end
     end
     
-    
-    
-    summary_dist(s,:)=vect_distance_reg;
-    summary_dur(s,:)=vect_duration_reg;
-    summary_mapview(s,:)=vect_duration_map;
+    %divide all map levels with average of level 1&2 to normalize
+    %performance
+    if normalize==1
+        summary_dist(s,:)=vect_distance_reg/mean([vect_distance(vect_levels==1),vect_distance(vect_levels==2)]);
+        summary_dur(s,:)=vect_duration_reg/mean([vect_duration(vect_levels==1),vect_duration(vect_levels==2)]);
+        summary_mapview(s,:)=vect_duration_map/mean([map_view_dur(vect_levels==1),map_view_dur(vect_levels==2)]);
+    else
+        summary_dist(s,:)=vect_distance_reg;
+        summary_dur(s,:)=vect_duration_reg;
+        summary_mapview(s,:)=vect_duration_map;
+    end
     summary_flare(s,:)=flare_acc_reg;
     summary_radialtech(s,:)=radial_tech_reg;
     summary_radialacc(s,:)=radial_acc_reg;
@@ -264,7 +274,7 @@ for s =1:size(listing,1)
     if isempty(whatsmissing)==1;summary_whatsmissing{s}=0;else;summary_whatsmissing{s}=whatsmissing;end
     
     
-    clearvars -except summary_* listing needed flares normal_levels radial
+    clearvars -except summary_* listing needed flares normal_levels radial normalize outputfilename
     
 end
 
@@ -274,7 +284,6 @@ save('summary_data.mat','summary_*','normal_levels','flares','needed','radial','
 
 for i=1:size(listing,1);subjlist{i,1}=listing(i).name;end
 % S=table(subjlist,summary_dist,summary_dur,summary_mapview,summary_flare,summary_radialtech,summary_radialacc,summary_radialprobes);
-filename = 'SHQ_emo_data.xlsx';
 % writetable(S,filename);
 
 Tab1 = array2table(cat(2,subjlist,num2cell(summary_dist)),'VariableNames',{'subjID','DISTANCE_L1','L2','L3','L6','L7','L8','L11','L12','L13','L16','L17','L18','L21','L22','L23','L26','L27','L28','L31','L32','L33','L36','L37','L38','L41','L42','L43_1','L43_2','L43_3'});
@@ -286,17 +295,17 @@ Tab6 = array2table(summary_radialacc,'VariableNames',{'RADIALLTM_L1','L2','L3','
 Tab7 = array2table(summary_radialprobes,'VariableNames',{'RADIALWM_L1','L2','L3','L4','L5'});
 
  sheet = 1;
- writetable(Tab1,filename,'sheet',sheet,'Range','A1')
+ writetable(Tab1,outputfilename,'sheet',sheet,'Range','A1')
  sheet = 2;
- writetable(Tab2,filename,'sheet',sheet,'Range','A1')
+ writetable(Tab2,outputfilename,'sheet',sheet,'Range','A1')
  sheet = 3;
- writetable(Tab3,filename,'sheet',sheet,'Range','A1')
+ writetable(Tab3,outputfilename,'sheet',sheet,'Range','A1')
  sheet = 4;
- writetable(Tab4,filename,'sheet',sheet,'Range','A1')
+ writetable(Tab4,outputfilename,'sheet',sheet,'Range','A1')
  sheet = 5;
- writetable(Tab5,filename,'sheet',sheet,'Range','A1') 
- writetable(Tab6,filename,'sheet',sheet,'Range','G1') 
- writetable(Tab7,filename,'sheet',sheet,'Range','L1')
+ writetable(Tab5,outputfilename,'sheet',sheet,'Range','A1') 
+ writetable(Tab6,outputfilename,'sheet',sheet,'Range','G1') 
+ writetable(Tab7,outputfilename,'sheet',sheet,'Range','L1')
  
 %% plot data
 clear
